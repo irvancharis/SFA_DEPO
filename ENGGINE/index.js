@@ -486,6 +486,64 @@ app.post('/api/simulasi/generate-penjualan', async (req, res) => {
     }
 });
 
+// --- FITUR DISASTER RECOVERY (RE-SYNC SELURUH DATA LOKAL KE PUSAT) ---
+app.post('/api/penjualan/resync', async (req, res) => {
+    const state = getActivationState();
+    const localPool = getDbLocalPool();
+    const syncPool = getDbSyncPool();
+
+    try {
+        const result = await localPool.query('SELECT * FROM sfa_penjualan ORDER BY tanggal ASC');
+        const allPenjualan = result.rows;
+
+        if (allPenjualan.length === 0) {
+            return res.json({ success: true, message: 'Tidak ada data transaksi di DB Lokal untuk di-resync.' });
+        }
+
+        const syncClient = await syncPool.connect();
+        let requeuedCount = 0;
+
+        try {
+            await syncClient.query('BEGIN');
+            for (const item of allPenjualan) {
+                const payload = {
+                    uuid: item.uuid,
+                    notransaksi: item.notransaksi,
+                    tanggal: item.tanggal,
+                    idsales: item.idsales,
+                    idpelanggan: item.idpelanggan,
+                    grand_total: item.grand_total
+                };
+
+                await syncClient.query(
+                    `INSERT INTO outbox_sync_pusat (depo_id, entity_type, payload, status)
+                     VALUES ($1, 'PENJUALAN', $2, 'pending')`,
+                    [state.depoId || 'DEPO-01', JSON.stringify(payload)]
+                );
+                requeuedCount++;
+            }
+            await syncClient.query('COMMIT');
+        } catch (err) {
+            await syncClient.query('ROLLBACK');
+            throw err;
+        } finally {
+            syncClient.release();
+        }
+
+        // Trigger outbox sync instan
+        processOutboxSync();
+
+        res.json({
+            success: true,
+            requeuedCount,
+            message: `Berhasil mendata ulang ${requeuedCount} transaksi lokal ke antrean outbox sync!`
+        });
+    } catch (err) {
+        console.error('❌ Gagal Re-sync data:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Auto Retry PostgreSQL Connections (Dual DB)
 async function testDbConnection(retries = 30) {
     while (retries > 0) {

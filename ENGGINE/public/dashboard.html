@@ -120,6 +120,7 @@
             <button style="background: rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 10px; color: white; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;" onclick="document.getElementById('simCount').value=100">100 Trx</button>
             <button style="background: rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 10px; color: white; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;" onclick="document.getElementById('simCount').value=500">500 Trx</button>
             <button style="background: rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 10px; color: white; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;" onclick="document.getElementById('simCount').value=1000">1000 Trx</button>
+            <button style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 12px 18px; font-weight: 700; border-radius: 10px; cursor: pointer; border: none; color: white; margin-left: auto;" onclick="triggerResync()">🔄 Disaster Recovery: Re-Sync Seluruh Data ke Pusat</button>
         </div>
         <div id="simLog" style="margin-top: 14px; font-size: 13px; font-weight: 600;"></div>
     </div>
@@ -208,6 +209,32 @@
                 logDiv.style.color = '#fca5a5';
                 logDiv.innerText = '❌ Error: ' + err.message;
             });
+        }
+
+        function triggerResync() {
+            if (!confirm('Apakah Anda yakin ingin mengirim ulang SELURUH data transaksi di DB Lokal Depo ke SFA Pusat (Disaster Recovery)?')) {
+                return;
+            }
+            const logDiv = document.getElementById('simLog');
+            logDiv.style.color = '#facc15';
+            logDiv.innerText = '⏳ Memproses pendaftaran ulang seluruh transaksi lokal ke antrean outbox sync...';
+
+            fetch('/api/penjualan/resync', { method: 'POST' })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        logDiv.style.color = '#34d399';
+                        logDiv.innerText = `✅ ${res.message}`;
+                        loadPenjualan();
+                    } else {
+                        logDiv.style.color = '#fca5a5';
+                        logDiv.innerText = '❌ Gagal Re-sync: ' + (res.error || res.message);
+                    }
+                })
+                .catch(err => {
+                    logDiv.style.color = '#fca5a5';
+                    logDiv.innerText = '❌ Error Re-sync: ' + err.message;
+                });
         }
 
         function resetToken() {
