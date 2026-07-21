@@ -174,13 +174,14 @@ app.use((req, res, next) => {
 // --- API TOKEN ACTIVATION & STATUS ---
 app.get('/api/status', (req, res) => {
     const state = getActivationState();
-    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || state.publicIp;
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     res.json({
         status: state.status,
+        token: state.token ? `***${state.token.slice(-4)}` : null,
         depoId: state.depoId,
         publicIp: state.status === 'connected' ? state.publicIp : clientIp,
         activatedAt: state.activatedAt,
-        pusatUrl: process.env.PUSAT_URL || 'http://localhost:3000',
+        pusatUrl: state.pusatUrl || process.env.PUSAT_URL || 'http://localhost:3000',
         databaseConfigured: !!state.database
     });
 });
@@ -193,7 +194,7 @@ app.post('/api/activate', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Token tidak boleh kosong!' });
     }
 
-    let targetPusatUrl = pusatUrl || process.env.PUSAT_URL || 'http://host.docker.internal:3000';
+    let targetPusatUrl = pusatUrl || state.pusatUrl || process.env.PUSAT_URL || 'http://host.docker.internal:3000';
     if (targetPusatUrl.includes('localhost') || targetPusatUrl.includes('127.0.0.1')) {
         targetPusatUrl = targetPusatUrl.replace(/localhost|127\.0\.0\.1/, 'host.docker.internal');
     }
@@ -211,6 +212,7 @@ app.post('/api/activate', async (req, res) => {
         if (response.ok && data.success) {
             state.status = 'connected';
             state.token = token.trim();
+            state.pusatUrl = targetPusatUrl;
             if (data.depoId) state.depoId = data.depoId;
             if (data.publicIp) state.publicIp = data.publicIp;
             state.activatedAt = new Date().toISOString();

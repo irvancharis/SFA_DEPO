@@ -101,11 +101,15 @@
         </div>
         <div class="stat-card">
             <div class="stat-title">IP PUBLIC TERKUNCI</div>
-            <div class="stat-value" style="color: #60a5fa;" id="statIp">180.252.12.89</div>
+            <div class="stat-value" style="color: #60a5fa;" id="statIp">127.0.0.1</div>
         </div>
         <div class="stat-card">
-            <div class="stat-title">TRANSAKSI SEEDER</div>
-            <div class="stat-value" style="color: #34d399;" id="statTrx">2 Transaksi</div>
+            <div class="stat-title">TARGET SFA PUSAT</div>
+            <div class="stat-value" style="color: #facc15; font-size: 16px; word-break: break-all;" id="statPusatUrl">http://localhost:3000</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">TRANSAKSI LOKAL</div>
+            <div class="stat-value" style="color: #34d399;" id="statTrx">0 Transaksi</div>
         </div>
     </div>
 
@@ -157,6 +161,7 @@
                     document.getElementById('depoInfo').innerText = `${data.depoId} (${data.publicIp})`;
                     document.getElementById('statDepo').innerText = data.depoId;
                     document.getElementById('statIp').innerText = data.publicIp;
+                    document.getElementById('statPusatUrl').innerText = data.pusatUrl || '-';
                     loadPenjualan();
                 }
             });
