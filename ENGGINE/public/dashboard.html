@@ -481,21 +481,20 @@
             e.preventDefault();
             const depoId = document.getElementById('inputDepoId').value;
             const name = document.getElementById('inputDepoName').value;
-            const dbHost = document.getElementById('inputDbHost').value || 'db_main';
-            const dbPort = document.getElementById('inputDbPort').value || 5432;
-            const dbName = document.getElementById('inputDbName').value || 'sfa_db';
+            const dbUser = document.getElementById('inputDbUser') ? document.getElementById('inputDbUser').value : 'postgres';
+            const dbPassword = document.getElementById('inputDbPassword') ? document.getElementById('inputDbPassword').value : 'postgres';
             
             fetch('/api/pusat/generate-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ depoId, name, dbHost, dbPort, dbName })
+                body: JSON.stringify({ depoId, name, dbUser, dbPassword })
             })
             .then(res => res.json())
             .then(res => {
                 const resultDiv = document.getElementById('genResult');
                 if (res.success) {
                     resultDiv.style.color = '#34d399';
-                    resultDiv.innerHTML = `✅ Token & Config DB Berhasil Dibuat!<br>Token: <code>${res.data.token}</code><br><small style="color:#60a5fa;">Config DB Target: ${res.data.dbConfig.host}:${res.data.dbConfig.port}/${res.data.dbConfig.name}</small>`;
+                    resultDiv.innerHTML = `✅ Token & Kredensial DB Berhasil Dibuat!<br>Token: <code>${res.data.token}</code><br><small style="color:#60a5fa;">User DB Target: ${res.data.dbConfig.user}</small>`;
                     document.getElementById('inputDepoId').value = '';
                     document.getElementById('inputDepoName').value = '';
                     loadDepos();
