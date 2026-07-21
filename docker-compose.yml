@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      - POSTGRES_DB=sfa_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./DATABASE:/docker-entrypoint-initdb.d
+    restart: always
+
+  app:
+    build: .
+    container_name: node_app
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=sfa_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - PORT=3000
+    volumes:
+      - ./CONFIG:/usr/src/app/CONFIG
+    depends_on:
+      - db
+    restart: always
+
+volumes:
+  pg_data:
