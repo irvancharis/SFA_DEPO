@@ -86,6 +86,7 @@ function saveActivationState(state) {
             token: state.token,
             depoId: state.depoId || 'DEPO-01',
             publicIp: state.publicIp || '127.0.0.1',
+            pusatUrl: state.pusatUrl || process.env.PUSAT_URL || 'http://host.docker.internal:3000',
             activatedAt: state.activatedAt,
             database: state.database || {
                 host: process.env.DB_HOST || 'db',
@@ -295,7 +296,7 @@ async function processOutboxSync() {
             const itemsToSend = pendingItems.rows.map(row => row.payload);
             const itemIds = pendingItems.rows.map(row => row.id);
 
-            let targetPusatUrl = process.env.PUSAT_URL || 'http://host.docker.internal:3000';
+            let targetPusatUrl = state.pusatUrl || process.env.PUSAT_URL || 'http://host.docker.internal:3000';
             if (targetPusatUrl.includes('localhost') || targetPusatUrl.includes('127.0.0.1')) {
                 targetPusatUrl = targetPusatUrl.replace(/localhost|127\.0\.0\.1/, 'host.docker.internal');
             }
@@ -317,13 +318,13 @@ async function processOutboxSync() {
                     "UPDATE outbox_sync_pusat SET status = 'synced', synced_at = NOW() WHERE id = ANY($1::int[])",
                     [itemIds]
                 );
-                console.log(`⚡ [REALTIME SYNC SUCCESS] ${itemsToSend.length} transaksi ter-sync ke SFA PUSAT!`);
+                console.log(`⚡ [REALTIME SYNC SUCCESS] ${itemsToSend.length} transaksi ter-sync ke SFA PUSAT (${targetPusatUrl})!`);
             } else {
-                console.warn(`⚠️ Realtime sync ditolak SFA PUSAT: ${result.message}`);
+                console.warn(`⚠️ Realtime sync ditolak SFA PUSAT (${targetPusatUrl}): ${result.message}`);
             }
         }
     } catch (err) {
-        // Log silent fail jika internet/Pusat offline (retry di cycle berikutnya)
+        console.error('❌ Realtime sync error ke Pusat:', err.message);
     } finally {
         isSyncing = false;
     }
