@@ -279,11 +279,12 @@ app.post('/api/pusat/disconnect', (req, res) => {
     if (depo) {
         if (depo.status !== 'blocked') {
             depo.status = 'pending';
-            depo.tokenUsed = false;
+            // PENTING: tokenUsed TETAP true agar token lama hangus & tidak bisa dipakai aktivasi lagi!
+            depo.tokenUsed = true;
         }
         savePusatConfig(config);
-        console.log(`🔌 [DEPO DISCONNECTED] Depo ${depo.depoId} dikembalikan ke status Pending.`);
-        return res.json({ success: true, message: `Status Depo ${depo.depoId} berhasil dikembalikan ke Pending.` });
+        console.log(`🔌 [DEPO DISCONNECTED] Depo ${depo.depoId} terputus (Status Pending, Token Hangus).`);
+        return res.json({ success: true, message: `Status Depo ${depo.depoId} terputus. Token lama telah hangus. Silakan lakukan 'Regenerate Token' jika ingin mengaktifkan ulang.` });
     }
     res.status(404).json({ success: false, message: 'Depo tidak ditemukan.' });
 });
