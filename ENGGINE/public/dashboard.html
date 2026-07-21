@@ -179,33 +179,76 @@
             <div id="simPusatLog" style="margin-top: 14px; font-size: 13px; font-weight: 600;"></div>
         </div>
 
+        <!-- MODAL POPUP REPORTING SYSTEM -->
+        <div id="reportModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.85); backdrop-filter: blur(10px); z-index: 9999; align-items: center; justify-content: center;">
+            <div style="background: #1e293b; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; width: 90%; max-width: 950px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); overflow: hidden;">
+                <!-- Header Modal -->
+                <div style="padding: 18px 24px; background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 id="modalReportTitle" style="margin: 0; font-size: 17px; font-weight: 700; color: #38bdf8;">📊 Laporan Omset Penjualan</h3>
+                        <span style="font-size: 11px; color: #94a3b8;">High-Performance Analytics Query (DB Report Mirror - B-Tree Indexed for 1M+ Records)</span>
+                    </div>
+                    <button onclick="closeReportModal()" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: 700; font-size: 16px;">✕</button>
+                </div>
+                <!-- Body Modal Table -->
+                <div style="padding: 24px; overflow-y: auto; flex: 1;">
+                    <table>
+                        <thead id="modalTableReportHead">
+                            <tr>
+                                <th>ID Depo</th>
+                                <th>Total Transaksi</th>
+                                <th>Total Omset Penjualan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalTableBody">
+                            <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Memuat data laporan...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Footer Modal -->
+                <div style="padding: 14px 24px; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); text-align: right;">
+                    <button onclick="closeReportModal()" class="btn-btn" style="background: rgba(255,255,255,0.1); color: white; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none;">Tutup Popup</button>
+                </div>
+            </div>
+        </div>
+
         <!-- PANEL REPORTING & BUSINESS INTELLIGENCE -->
         <div class="content-card">
             <div class="card-header">
                 <h3>📈 Pusat Analytics & Reporting System (DB Report Mirror)</h3>
                 <div style="display: flex; gap: 8px;">
-                    <button id="btnReportOmset" class="btn-btn btn-primary" style="padding: 8px 14px; font-weight: 600;" onclick="loadReportOmset()">📊 Omset Per Depo</button>
-                    <button id="btnReportSales" class="btn-btn" style="background: rgba(255,255,255,0.1); color: white; padding: 8px 14px; font-weight: 600;" onclick="loadReportSales()">🏆 Top Sales Per Depo</button>
-                    <button id="btnReportTrx" class="btn-btn" style="background: rgba(255,255,255,0.1); color: white; padding: 8px 14px; font-weight: 600;" onclick="loadPenjualan()">🛒 Transaksi Terbaru</button>
+                    <button id="btnReportOmset" class="btn-btn btn-primary" style="padding: 8px 16px; font-weight: 700; background: linear-gradient(135deg, #3b82f6, #1d4ed8);" onclick="loadReportOmsetModal()">📊 Popup Report Omset Per Depo</button>
+                    <button id="btnReportSales" class="btn-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; padding: 8px 16px; font-weight: 700;" onclick="loadReportSalesModal()">🏆 Popup Top Sales Per Depo</button>
+                    <button id="btnReportTrx" class="btn-btn" style="background: rgba(255,255,255,0.1); color: white; padding: 8px 16px; font-weight: 600;" onclick="loadPenjualanModal()">🛒 Popup Transaksi Terbaru</button>
                 </div>
             </div>
-            <div id="reportTitle" style="font-size: 14px; font-weight: 700; color: #60a5fa; margin-bottom: 12px;">📊 Laporan Omset & Transaksi Per Depo</div>
+            <div id="reportTitle" style="font-size: 14px; font-weight: 700; color: #60a5fa; margin-bottom: 12px;">📊 Laporan Ringkasan Omset & Transaksi Terkini</div>
             <table>
                 <thead id="tableReportHead">
                     <tr>
-                        <th>ID Depo</th>
-                        <th>Total Transaksi</th>
-                        <th>Total Omset Penjualan</th>
+                        <th>No Transaksi</th>
+                        <th>Tanggal</th>
+                        <th>ID Sales</th>
+                        <th>Pelanggan</th>
+                        <th>Grand Total</th>
                     </tr>
                 </thead>
                 <tbody id="tableTrx">
-                    <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Memuat data laporan...</td></tr>
+                    <tr><td colspan="5" style="text-align: center; color: #94a3b8;">Memuat data transaksi...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <script>
+        function openReportModal() {
+            document.getElementById('reportModal').style.display = 'flex';
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').style.display = 'none';
+        }
+
         function loadPusatStatus() {
             fetch('/api/status')
                 .then(res => res.json())
@@ -260,7 +303,7 @@
                 if (res.success) {
                     logDiv.style.color = '#34d399';
                     logDiv.innerText = `✅ ${res.message}`;
-                    loadReportOmset();
+                    loadPenjualan();
                 } else {
                     logDiv.style.color = '#fca5a5';
                     logDiv.innerText = '❌ Gagal: ' + (res.error || res.message);
@@ -272,19 +315,21 @@
             });
         }
 
-        function loadReportOmset() {
-            document.getElementById('reportTitle').innerText = '📊 Laporan Ringkasan Omset Penjualan Per Depo';
-            document.getElementById('tableReportHead').innerHTML = `
+        function loadReportOmsetModal() {
+            document.getElementById('modalReportTitle').innerText = '📊 Laporan Ringkasan Omset Penjualan Per Depo';
+            document.getElementById('modalTableReportHead').innerHTML = `
                 <tr>
                     <th>ID Depo</th>
                     <th>Total Transaksi</th>
                     <th>Total Omset Penjualan</th>
                 </tr>
             `;
+            openReportModal();
+
             fetch('/api/report/omset-depo')
                 .then(res => res.json())
                 .then(res => {
-                    const tbody = document.getElementById('tableTrx');
+                    const tbody = document.getElementById('modalTableBody');
                     if (!res.data || res.data.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Belum ada data omset.</td></tr>';
                         return;
@@ -299,9 +344,9 @@
                 });
         }
 
-        function loadReportSales() {
-            document.getElementById('reportTitle').innerText = '🏆 Laporan Ranking Sales Terbaik Per Depo';
-            document.getElementById('tableReportHead').innerHTML = `
+        function loadReportSalesModal() {
+            document.getElementById('modalReportTitle').innerText = '🏆 Laporan Ranking Sales Terbaik Per Depo';
+            document.getElementById('modalTableReportHead').innerHTML = `
                 <tr>
                     <th>Peringkat</th>
                     <th>ID Depo</th>
@@ -310,10 +355,12 @@
                     <th>Total Omset Penjualan</th>
                 </tr>
             `;
+            openReportModal();
+
             fetch('/api/report/top-sales')
                 .then(res => res.json())
                 .then(res => {
-                    const tbody = document.getElementById('tableTrx');
+                    const tbody = document.getElementById('modalTableBody');
                     if (!res.data || res.data.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data sales.</td></tr>';
                         return;
@@ -325,6 +372,39 @@
                             <td>Sales #${item.idsales}</td>
                             <td>${parseInt(item.total_transaksi).toLocaleString('id-ID')} Transaksi</td>
                             <td style="font-weight:700; color:#34d399;">Rp ${parseFloat(item.total_omset).toLocaleString('id-ID')}</td>
+                        </tr>
+                    `).join('');
+                });
+        }
+
+        function loadPenjualanModal() {
+            document.getElementById('modalReportTitle').innerText = '🛒 Laporan Data Transaksi Penjualan Terbaru (DB Report Mirror)';
+            document.getElementById('modalTableReportHead').innerHTML = `
+                <tr>
+                    <th>No Transaksi</th>
+                    <th>Tanggal</th>
+                    <th>ID Sales</th>
+                    <th>Pelanggan</th>
+                    <th>Grand Total</th>
+                </tr>
+            `;
+            openReportModal();
+
+            fetch('/api/penjualan')
+                .then(res => res.json())
+                .then(res => {
+                    const tbody = document.getElementById('modalTableBody');
+                    if (!res.data || res.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Belum ada data transaksi.</td></tr>';
+                        return;
+                    }
+                    tbody.innerHTML = res.data.map(item => `
+                        <tr>
+                            <td><strong>${item.notransaksi}</strong></td>
+                            <td>${new Date(item.tanggal).toLocaleDateString('id-ID')} ${new Date(item.tanggal).toLocaleTimeString('id-ID')}</td>
+                            <td>Sales #${item.idsales}</td>
+                            <td>${item.idpelanggan}</td>
+                            <td style="font-weight:700; color:#34d399;">Rp ${parseFloat(item.grand_total).toLocaleString('id-ID')}</td>
                         </tr>
                     `).join('');
                 });

@@ -1,5 +1,6 @@
 -- ========================================================
 -- Schema Database Reporting & Analytics SFA PUSAT
+-- Optimized for 1,000,000+ Transactions Per Month
 -- ========================================================
 
 CREATE TABLE IF NOT EXISTS sfa_penjualan (
@@ -12,6 +13,12 @@ CREATE TABLE IF NOT EXISTS sfa_penjualan (
     id_depo VARCHAR(50),
     CONSTRAINT pk_sfa_penjualan_report_id PRIMARY KEY (uuid, notransaksi)
 );
+
+-- B-Tree Indexes for 1M+ Records High Performance Analytics
+CREATE INDEX IF NOT EXISTS idx_sfa_penjualan_depo ON sfa_penjualan(id_depo);
+CREATE INDEX IF NOT EXISTS idx_sfa_penjualan_tanggal ON sfa_penjualan(tanggal DESC);
+CREATE INDEX IF NOT EXISTS idx_sfa_penjualan_sales ON sfa_penjualan(idsales);
+CREATE INDEX IF NOT EXISTS idx_sfa_penjualan_depo_sales ON sfa_penjualan(id_depo, idsales);
 
 CREATE TABLE IF NOT EXISTS master_pelanggan (
     idpelanggan VARCHAR(50) PRIMARY KEY,
