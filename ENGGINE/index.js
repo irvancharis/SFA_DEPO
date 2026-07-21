@@ -361,6 +361,46 @@ app.get('/api/penjualan', async (req, res) => {
     }
 });
 
+// --- FITUR REPORTING & BUSINESS INTELLIGENCE (DARI DB REPORT) ---
+app.get('/api/report/omset-depo', async (req, res) => {
+    try {
+        const pool = getDbReportPool();
+        const result = await pool.query(`
+            SELECT 
+                COALESCE(id_depo, 'DEPO-01') AS depo_id,
+                COUNT(*) AS total_transaksi,
+                SUM(grand_total) AS total_omset
+            FROM sfa_penjualan
+            GROUP BY COALESCE(id_depo, 'DEPO-01')
+            ORDER BY total_omset DESC
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/report/top-sales', async (req, res) => {
+    try {
+        const pool = getDbReportPool();
+        const result = await pool.query(`
+            SELECT 
+                COALESCE(id_depo, 'DEPO-01') AS depo_id,
+                idsales,
+                COUNT(*) AS total_transaksi,
+                SUM(grand_total) AS total_omset,
+                RANK() OVER (PARTITION BY COALESCE(id_depo, 'DEPO-01') ORDER BY SUM(grand_total) DESC) as rank_depo
+            FROM sfa_penjualan
+            GROUP BY COALESCE(id_depo, 'DEPO-01'), idsales
+            ORDER BY depo_id, rank_depo ASC
+            LIMIT 50
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // --- API RECEIVER SINKRONISASI REALTIME DEPO ---
 app.post('/api/pusat/sync-penjualan', async (req, res) => {
     const { depoId, token, items } = req.body;
