@@ -110,30 +110,53 @@ function savePusatConfig(configObj) {
     }
 }
 
-// --- DYNAMIC POSTGRESQL POOL ---
-let currentPool = null;
+// --- DUAL POSTGRESQL POOLS (HQ MAIN RECEIVER DB + REPORTING/CALCULATION DB) ---
+let mainDbPool = null;
+let reportDbPool = null;
 
-function getDbPool() {
+function getDbMainPool() {
     const config = getPusatConfig();
     const dbConf = config.database || {};
     
-    const host = process.env.DB_HOST || dbConf.host || 'db';
-    const port = parseInt(dbConf.port || process.env.DB_PORT, 10) || 5432;
-    const database = dbConf.name || process.env.DB_DATABASE || 'sfa_db';
-    const user = dbConf.user || process.env.DB_USER || 'postgres';
-    const password = dbConf.password || process.env.DB_PASSWORD || 'postgres';
+    const host = process.env.DB_HOST || 'db_main';
+    const port = parseInt(process.env.DB_PORT || dbConf.port, 10) || 5432;
+    const database = process.env.DB_DATABASE || dbConf.name || 'sfa_db';
+    const user = process.env.DB_USER || dbConf.user || 'postgres';
+    const password = process.env.DB_PASSWORD || dbConf.password || 'postgres';
 
-    if (!currentPool) {
-        currentPool = new Pool({ host, port, database, user, password });
-        console.log(`🔌 Initialized HQ PostgreSQL Pool -> ${user}@${host}:${port}/${database}`);
+    if (!mainDbPool) {
+        mainDbPool = new Pool({ host, port, database, user, password });
+        console.log(`🔌 [HQ DB MAIN] Initialized Receiver Pool -> ${user}@${host}:${port}/${database}`);
     }
-    return currentPool;
+    return mainDbPool;
+}
+
+function getDbReportPool() {
+    const host = process.env.DB_REPORT_HOST || 'db_report';
+    const port = parseInt(process.env.DB_REPORT_PORT, 10) || 5432;
+    const database = process.env.DB_REPORT_DATABASE || 'sfa_db_report';
+    const user = process.env.DB_USER || 'postgres';
+    const password = process.env.DB_PASSWORD || 'postgres';
+
+    if (!reportDbPool) {
+        reportDbPool = new Pool({ host, port, database, user, password });
+        console.log(`🔌 [HQ DB REPORT] Initialized Reporting/Calculation Pool -> ${user}@${host}:${port}/${database}`);
+    }
+    return reportDbPool;
+}
+
+function getDbPool() {
+    return getDbMainPool();
 }
 
 function resetDbPool() {
-    if (currentPool) {
-        currentPool.end().catch(() => {});
-        currentPool = null;
+    if (mainDbPool) {
+        mainDbPool.end().catch(() => {});
+        mainDbPool = null;
+    }
+    if (reportDbPool) {
+        reportDbPool.end().catch(() => {});
+        reportDbPool = null;
     }
 }
 
@@ -182,7 +205,6 @@ app.post('/api/pusat/verify-token', (req, res) => {
             });
         }
 
-        // Update status & IP Depo
         depo.status = 'connected';
         depo.publicIp = clientIp;
         depo.activatedAt = depo.activatedAt || new Date().toISOString();
@@ -265,7 +287,6 @@ app.post('/api/pusat/generate-token', (req, res) => {
         return res.status(400).json({ success: false, message: 'ID Depo sudah terdaftar!' });
     }
 
-    // Cryptographically secure 96-bit high-entropy token format: SFA-KEY-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
     const randomBlocks = crypto.randomBytes(12).toString('hex').toUpperCase().match(/.{1,4}/g).join('-');
     const newToken = `SFA-KEY-${randomBlocks}`;
     const newDepo = {
@@ -286,7 +307,7 @@ app.post('/api/pusat/generate-token', (req, res) => {
 });
 
 app.post('/api/pusat/depo/control', (req, res) => {
-    const { depoId, action } = req.body; // action: 'block' | 'activate' | 'delete'
+    const { depoId, action } = req.body;
     const config = getPusatConfig();
     const index = config.depos.findIndex(d => d.depoId === depoId);
 
@@ -306,10 +327,10 @@ app.post('/api/pusat/depo/control', (req, res) => {
     res.json({ success: true, message: `Berhasil mengubah status Depo ${depoId}` });
 });
 
-// --- API DATA PENJUALAN CENTRAL ---
+// --- API DATA PENJUALAN & REPORTING (DARI DB REPORT) ---
 app.get('/api/produk', async (req, res) => {
     try {
-        const pool = getDbPool();
+        const pool = getDbMainPool();
         const result = await pool.query('SELECT * FROM master_sfa_produk LIMIT 50');
         res.json({ count: result.rowCount, data: result.rows });
     } catch (err) {
@@ -319,7 +340,7 @@ app.get('/api/produk', async (req, res) => {
 
 app.get('/api/pelanggan', async (req, res) => {
     try {
-        const pool = getDbPool();
+        const pool = getDbMainPool();
         const result = await pool.query('SELECT * FROM master_pelanggan LIMIT 50');
         res.json({ count: result.rowCount, data: result.rows });
     } catch (err) {
@@ -329,7 +350,7 @@ app.get('/api/pelanggan', async (req, res) => {
 
 app.get('/api/penjualan', async (req, res) => {
     try {
-        const pool = getDbPool();
+        const pool = getDbReportPool(); // Read directly from DB Report Mirror
         const countRes = await pool.query('SELECT COUNT(*) FROM sfa_penjualan');
         const totalCount = parseInt(countRes.rows[0].count, 10);
 
@@ -355,14 +376,14 @@ app.post('/api/pusat/sync-penjualan', async (req, res) => {
     }
 
     try {
-        const pool = getDbPool();
         let syncedCount = 0;
 
-        const client = await pool.connect();
+        // 1. Simpan ke HQ Main DB (Transactional Receiver)
+        const mainClient = await getDbMainPool().connect();
         try {
-            await client.query('BEGIN');
+            await mainClient.query('BEGIN');
             for (const item of items) {
-                await client.query(
+                await mainClient.query(
                     `INSERT INTO sfa_penjualan (uuid, notransaksi, tanggal, idsales, idpelanggan, grand_total)
                      VALUES ($1, $2, $3, $4, $5, $6)
                      ON CONFLICT (uuid, notransaksi) DO UPDATE SET
@@ -374,16 +395,48 @@ app.post('/api/pusat/sync-penjualan', async (req, res) => {
                 );
                 syncedCount++;
             }
-            await client.query('COMMIT');
+            await mainClient.query('COMMIT');
         } catch (err) {
-            await client.query('ROLLBACK');
+            await mainClient.query('ROLLBACK');
             throw err;
         } finally {
-            client.release();
+            mainClient.release();
         }
 
+        // 2. Asynchronous Mirroring ke HQ Report/Calculation DB
+        (async () => {
+            try {
+                const reportClient = await getDbReportPool().connect();
+                try {
+                    await reportClient.query('BEGIN');
+                    for (const item of items) {
+                        await reportClient.query(
+                            `INSERT INTO sfa_penjualan (uuid, notransaksi, tanggal, idsales, idpelanggan, grand_total, id_depo)
+                             VALUES ($1, $2, $3, $4, $5, $6, $7)
+                             ON CONFLICT (uuid, notransaksi) DO UPDATE SET
+                             tanggal = EXCLUDED.tanggal,
+                             idsales = EXCLUDED.idsales,
+                             idpelanggan = EXCLUDED.idpelanggan,
+                             grand_total = EXCLUDED.grand_total,
+                             id_depo = EXCLUDED.id_depo`,
+                            [item.uuid || crypto.randomUUID(), item.notransaksi, item.tanggal || new Date(), item.idsales || 1, item.idpelanggan || 'CUST-GENERAL', item.grand_total || 0, depo.depoId]
+                        );
+                    }
+                    await reportClient.query('COMMIT');
+                    console.log(`📊 [HQ DB REPORT MIRROR] ${items.length} transaksi ter-mirror ke Reporting DB!`);
+                } catch (e) {
+                    await reportClient.query('ROLLBACK');
+                    console.error('❌ Mirror error ke Reporting DB:', e.message);
+                } finally {
+                    reportClient.release();
+                }
+            } catch (err) {
+                console.error('❌ DB Report connection error:', err.message);
+            }
+        })();
+
         console.log(`⚡ [REALTIME SYNC HQ] Berhasil menerima ${syncedCount} transaksi dari ${depo.depoId}`);
-        res.json({ success: true, count: syncedCount, message: `${syncedCount} Transaksi berhasil disinkronkan ke HQ Pusat.` });
+        res.json({ success: true, count: syncedCount, message: `${syncedCount} Transaksi berhasil disinkronkan ke HQ Pusat & Reporting DB.` });
     } catch (err) {
         console.error('❌ Error saving sync data at HQ:', err.message);
         res.status(500).json({ success: false, error: err.message });
@@ -394,10 +447,16 @@ app.post('/api/pusat/sync-penjualan', async (req, res) => {
 async function testDbConnection(retries = 30) {
     while (retries > 0) {
         try {
-            const pool = getDbPool();
-            const client = await pool.connect();
-            console.log('✅ SFA PUSAT connected to PostgreSQL Central Database!');
-            client.release();
+            const mainPool = getDbMainPool();
+            const mainClient = await mainPool.connect();
+            console.log('✅ SFA PUSAT connected to HQ DB Main Receiver!');
+            mainClient.release();
+
+            const reportPool = getDbReportPool();
+            const reportClient = await reportPool.connect();
+            console.log('✅ SFA PUSAT connected to HQ DB Report/Calculation Mirror!');
+            reportClient.release();
+
             return;
         } catch (err) {
             console.log(`⚠️ Database PostgreSQL belum siap (${err.message}). Retries remaining: ${retries}`);

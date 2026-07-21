@@ -1,7 +1,7 @@
 services:
-  db:
+  db_main:
     image: postgres:16-alpine
-    container_name: sfa_pusat_db
+    container_name: sfa_pusat_db_main
     environment:
       - POSTGRES_DB=sfa_db
       - POSTGRES_USER=postgres
@@ -9,8 +9,22 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pg_pusat_data:/var/lib/postgresql/data
+      - pg_pusat_main_data:/var/lib/postgresql/data
       - ./DATABASE:/docker-entrypoint-initdb.d
+    restart: always
+
+  db_report:
+    image: postgres:16-alpine
+    container_name: sfa_pusat_db_report
+    environment:
+      - POSTGRES_DB=sfa_db_report
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg_pusat_report_data:/var/lib/postgresql/data
+      - ./DATABASE_REPORT:/docker-entrypoint-initdb.d
     restart: always
 
   app:
@@ -19,17 +33,22 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DB_HOST=db
+      - DB_HOST=db_main
       - DB_PORT=5432
       - DB_DATABASE=sfa_db
+      - DB_REPORT_HOST=db_report
+      - DB_REPORT_PORT=5432
+      - DB_REPORT_DATABASE=sfa_db_report
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - PORT=3000
     volumes:
       - ./CONFIG:/usr/src/app/CONFIG
     depends_on:
-      - db
+      - db_main
+      - db_report
     restart: always
 
 volumes:
-  pg_pusat_data:
+  pg_pusat_main_data:
+  pg_pusat_report_data:
