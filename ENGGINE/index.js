@@ -300,9 +300,9 @@ app.post('/api/pusat/generate-token', (req, res) => {
     const newToken = `SFA-KEY-${randomBlocks}`;
 
     const dbConfig = {
-        host: dbHost || 'db_main',
-        port: parseInt(dbPort, 10) || 5432,
-        name: dbName || 'sfa_db',
+        host: 'db_main',
+        port: 5432,
+        name: 'sfa_db',
         user: dbUser || 'postgres',
         password: dbPassword || 'postgres'
     };
