@@ -116,11 +116,11 @@ function getDbLocalPool() {
     const state = getActivationState();
     const dbConf = state.database || {};
     
-    const host = process.env.DB_LOCAL_HOST || dbConf.host || 'db_local';
-    const port = parseInt(dbConf.port || process.env.DB_LOCAL_PORT, 10) || 5432;
-    const database = dbConf.name || process.env.DB_LOCAL_NAME || 'sfa_db';
-    const user = dbConf.user || process.env.DB_USER || 'postgres';
-    const password = dbConf.password || process.env.DB_PASSWORD || 'postgres';
+    const host = process.env.DB_LOCAL_HOST || 'db_local';
+    const port = parseInt(process.env.DB_LOCAL_PORT || dbConf.port, 10) || 5432;
+    const database = process.env.DB_LOCAL_NAME || dbConf.name || 'sfa_db';
+    const user = process.env.DB_USER || dbConf.user || 'postgres';
+    const password = process.env.DB_PASSWORD || dbConf.password || 'postgres';
 
     if (!localDbPool) {
         localDbPool = new Pool({ host, port, database, user, password });
