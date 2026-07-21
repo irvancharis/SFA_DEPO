@@ -314,6 +314,7 @@
                                     `<button class="btn-btn btn-warning" onclick="controlDepo('${d.depoId}', 'activate')">Buka Blokir</button>` : 
                                     `<button class="btn-btn btn-danger" onclick="controlDepo('${d.depoId}', 'block')">Blokir Depo</button>`
                                 }
+                                <button class="btn-btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; margin-left:4px; font-weight:600; padding:6px 10px; border-radius:6px; border:none; cursor:pointer;" onclick="regenerateToken('${d.depoId}')">🔑 Regenerate Token</button>
                                 <button class="btn-btn btn-danger" style="margin-left:4px;" onclick="controlDepo('${d.depoId}', 'delete')">Hapus</button>
                             </td>
                         </tr>
@@ -505,6 +506,26 @@
                 }
             });
         });
+
+        function regenerateToken(depoId) {
+            if (confirm(`Apakah Anda yakin ingin melakukan Regenerate Token untuk ${depoId}? Depo harus diaktifkan ulang menggunakan token baru.`)) {
+                fetch('/api/pusat/depo/regenerate-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ depoId })
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        alert(`✅ Token Baru untuk ${depoId}:\n\n${res.token}\n\nBerikan token baru ini ke pihak Depo.`);
+                        loadDepos();
+                        loadPusatStatus();
+                    } else {
+                        alert('❌ Gagal Regenerate: ' + res.message);
+                    }
+                });
+            }
+        }
 
         function controlDepo(depoId, action) {
             if (confirm(`Apakah Anda yakin ingin melakukan tindakan '${action}' pada ${depoId}?`)) {

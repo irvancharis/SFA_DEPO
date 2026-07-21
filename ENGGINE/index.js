@@ -214,7 +214,16 @@ app.post('/api/pusat/verify-token', (req, res) => {
             });
         }
 
+        // KUNCI TOKEN 1X PAKAI (SINGLE-USE TOKEN CHECK)
+        if (depo.tokenUsed && depo.status === 'connected') {
+            return res.status(400).json({
+                success: false,
+                message: `Token Aktivasi ini sudah pernah digunakan (Single-Use Token). Silakan lakukan Regenerate Token di Dashboard Pusat jika ingin mengaktifkan ulang Depo ini.`
+            });
+        }
+
         depo.status = 'connected';
+        depo.tokenUsed = true;
         depo.publicIp = clientIp;
         depo.activatedAt = depo.activatedAt || new Date().toISOString();
         depo.lastPing = new Date().toISOString();
@@ -270,6 +279,7 @@ app.post('/api/pusat/disconnect', (req, res) => {
     if (depo) {
         if (depo.status !== 'blocked') {
             depo.status = 'pending';
+            depo.tokenUsed = false;
         }
         savePusatConfig(config);
         console.log(`🔌 [DEPO DISCONNECTED] Depo ${depo.depoId} dikembalikan ke status Pending.`);
@@ -282,6 +292,27 @@ app.post('/api/pusat/disconnect', (req, res) => {
 app.get('/api/pusat/depos', (req, res) => {
     const config = getPusatConfig();
     res.json({ success: true, depos: config.depos });
+});
+
+app.post('/api/pusat/depo/regenerate-token', (req, res) => {
+    const { depoId } = req.body;
+    const config = getPusatConfig();
+    const depo = config.depos.find(d => d.depoId.toUpperCase() === depoId.toUpperCase());
+
+    if (!depo) {
+        return res.status(404).json({ success: false, message: 'Depo tidak ditemukan.' });
+    }
+
+    const randomBlocks = crypto.randomBytes(12).toString('hex').toUpperCase().match(/.{1,4}/g).join('-');
+    const newToken = `SFA-KEY-${randomBlocks}`;
+
+    depo.token = newToken;
+    depo.tokenUsed = false;
+    depo.status = 'pending';
+    savePusatConfig(config);
+
+    console.log(`🔑 [TOKEN REGENERATED] Token baru dibuat untuk ${depoId}: ${newToken}`);
+    res.json({ success: true, message: `Token Depo ${depoId} berhasil di-regenerate!`, token: newToken, depo });
 });
 
 app.post('/api/pusat/generate-token', (req, res) => {
