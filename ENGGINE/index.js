@@ -230,7 +230,7 @@ app.post('/api/pusat/verify-token', (req, res) => {
             name: depo.name,
             status: depo.status,
             publicIp: depo.publicIp,
-            dbConfig: config.database
+            dbConfig: depo.dbConfig || config.database
         });
     }
 
@@ -285,7 +285,7 @@ app.get('/api/pusat/depos', (req, res) => {
 });
 
 app.post('/api/pusat/generate-token', (req, res) => {
-    const { depoId, name } = req.body;
+    const { depoId, name, dbHost, dbPort, dbName, dbUser, dbPassword } = req.body;
     if (!depoId) {
         return res.status(400).json({ success: false, message: 'ID Depo wajib diisi!' });
     }
@@ -298,6 +298,15 @@ app.post('/api/pusat/generate-token', (req, res) => {
 
     const randomBlocks = crypto.randomBytes(12).toString('hex').toUpperCase().match(/.{1,4}/g).join('-');
     const newToken = `SFA-KEY-${randomBlocks}`;
+
+    const dbConfig = {
+        host: dbHost || 'db_main',
+        port: parseInt(dbPort, 10) || 5432,
+        name: dbName || 'sfa_db',
+        user: dbUser || 'postgres',
+        password: dbPassword || 'postgres'
+    };
+
     const newDepo = {
         depoId: depoId.toUpperCase(),
         name: name || `Depo ${depoId}`,
@@ -305,14 +314,15 @@ app.post('/api/pusat/generate-token', (req, res) => {
         status: 'pending',
         publicIp: '-',
         activatedAt: null,
-        lastPing: null
+        lastPing: null,
+        dbConfig: dbConfig
     };
 
     config.depos.push(newDepo);
     savePusatConfig(config);
 
-    console.log(`🔑 [TOKEN GENERATED] Token baru dibuat untuk ${depoId}: ${newToken}`);
-    res.json({ success: true, message: 'Token Depo berhasil dibuat!', data: newDepo });
+    console.log(`🔑 [TOKEN GENERATED] Token baru dibuat untuk ${depoId}: ${newToken} dengan DB Config (${dbConfig.host}:${dbConfig.port}/${dbConfig.name})`);
+    res.json({ success: true, message: 'Token & Konfigurasi DB Depo berhasil dibuat!', data: newDepo });
 });
 
 app.post('/api/pusat/depo/control', (req, res) => {

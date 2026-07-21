@@ -132,13 +132,16 @@
         <!-- GENERATOR TOKEN AKTIVASI -->
         <div class="content-card">
             <div class="card-header">
-                <h3>🔑 Generate Token Aktivasi SFA Depo Baru</h3>
+                <h3>🔑 Generate Token Aktivasi & Config DB Depo Baru</h3>
             </div>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">Buat ID Depo dan Token Aktivasi enkripsi untuk diberikan kepada SFA Depo cabang baru.</p>
-            <form id="formGenerateToken" class="form-inline">
-                <input type="text" id="inputDepoId" class="form-control" placeholder="ID Depo (contoh: DEPO-SURABAYA-01)" required>
-                <input type="text" id="inputDepoName" class="form-control" placeholder="Nama Depo (contoh: Depo Surabaya Central)" required>
-                <button type="submit" class="btn-btn btn-primary">Generate Token</button>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px;">Buat ID Depo, Token Aktivasi, serta Konfigurasi Target Database PostgreSQL untuk Depo cabang baru.</p>
+            <form id="formGenerateToken" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px;">
+                <input type="text" id="inputDepoId" class="form-control" placeholder="ID Depo (DEPO-SURABAYA-01)" required>
+                <input type="text" id="inputDepoName" class="form-control" placeholder="Nama Depo (Depo Central)" required>
+                <input type="text" id="inputDbHost" class="form-control" placeholder="Host DB (db_main)" value="db_main">
+                <input type="number" id="inputDbPort" class="form-control" placeholder="Port DB (5432)" value="5432">
+                <input type="text" id="inputDbName" class="form-control" placeholder="Nama DB (sfa_db)" value="sfa_db">
+                <button type="submit" class="btn-btn btn-primary" style="grid-column: 1 / -1; padding: 12px; font-weight: 700; border-radius: 10px; cursor: pointer;">🚀 Generate Token & Simpan Config DB Depo</button>
             </form>
             <div id="genResult" style="margin-top: 14px; font-weight: 600;"></div>
         </div>
@@ -155,6 +158,7 @@
                         <th>ID Depo</th>
                         <th>Nama Depo</th>
                         <th>Token Aktivasi</th>
+                        <th>Target DB Config</th>
                         <th>IP Public Depo</th>
                         <th>Status</th>
                         <th>Ping Terakhir</th>
@@ -162,7 +166,7 @@
                     </tr>
                 </thead>
                 <tbody id="tableDepos">
-                    <tr><td colspan="7" style="text-align: center; color: #94a3b8;">Memuat data SFA Depo...</td></tr>
+                    <tr><td colspan="8" style="text-align: center; color: #94a3b8;">Memuat data SFA Depo...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -290,14 +294,17 @@
                 .then(res => {
                     const tbody = document.getElementById('tableDepos');
                     if (!res.depos || res.depos.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Belum ada Depo terdaftar.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Belum ada Depo terdaftar.</td></tr>';
                         return;
                     }
-                    tbody.innerHTML = res.depos.map(d => `
+                    tbody.innerHTML = res.depos.map(d => {
+                        const dbConfStr = d.dbConfig ? `${d.dbConfig.host}:${d.dbConfig.port}/${d.dbConfig.name}` : 'db_main:5432/sfa_db';
+                        return `
                         <tr>
                             <td><strong>${d.depoId}</strong></td>
                             <td>${d.name}</td>
                             <td><code style="background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; font-size:12px;">${d.token}</code></td>
+                            <td><code style="background:rgba(59,130,246,0.15); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700;">${dbConfStr}</code></td>
                             <td style="color:#60a5fa;">${d.publicIp || '-'}</td>
                             <td><span class="status-badge status-${d.status}">${d.status}</span></td>
                             <td style="font-size:12px; color:#94a3b8;">${d.lastPing ? new Date(d.lastPing).toLocaleTimeString('id-ID') : '-'}</td>
@@ -309,7 +316,7 @@
                                 <button class="btn-btn btn-danger" style="margin-left:4px;" onclick="controlDepo('${d.depoId}', 'delete')">Hapus</button>
                             </td>
                         </tr>
-                    `).join('');
+                    `}).join('');
                 });
         }
 
@@ -472,18 +479,21 @@
             e.preventDefault();
             const depoId = document.getElementById('inputDepoId').value;
             const name = document.getElementById('inputDepoName').value;
+            const dbHost = document.getElementById('inputDbHost').value || 'db_main';
+            const dbPort = document.getElementById('inputDbPort').value || 5432;
+            const dbName = document.getElementById('inputDbName').value || 'sfa_db';
             
             fetch('/api/pusat/generate-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ depoId, name })
+                body: JSON.stringify({ depoId, name, dbHost, dbPort, dbName })
             })
             .then(res => res.json())
             .then(res => {
                 const resultDiv = document.getElementById('genResult');
                 if (res.success) {
                     resultDiv.style.color = '#34d399';
-                    resultDiv.innerHTML = `✅ Token Berhasil Dibuat!<br>Token: <code>${res.data.token}</code> (Berikan token ini ke Depo)`;
+                    resultDiv.innerHTML = `✅ Token & Config DB Berhasil Dibuat!<br>Token: <code>${res.data.token}</code><br><small style="color:#60a5fa;">Config DB Target: ${res.data.dbConfig.host}:${res.data.dbConfig.port}/${res.data.dbConfig.name}</small>`;
                     document.getElementById('inputDepoId').value = '';
                     document.getElementById('inputDepoName').value = '';
                     loadDepos();
