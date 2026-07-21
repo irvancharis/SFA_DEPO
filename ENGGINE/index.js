@@ -215,10 +215,10 @@ app.post('/api/pusat/verify-token', (req, res) => {
         }
 
         // KUNCI TOKEN 1X PAKAI (SINGLE-USE TOKEN CHECK)
-        if (depo.tokenUsed && depo.status === 'connected') {
+        if (depo.tokenUsed === true || depo.status === 'connected') {
             return res.status(400).json({
                 success: false,
-                message: `Token Aktivasi ini sudah pernah digunakan (Single-Use Token). Silakan lakukan Regenerate Token di Dashboard Pusat jika ingin mengaktifkan ulang Depo ini.`
+                message: `Token Aktivasi '${token}' sudah pernah digunakan (Single-Use Token). Silakan lakukan 'Regenerate Token' di Dashboard Pusat jika ingin mengaktifkan ulang Depo ini.`
             });
         }
 
