@@ -362,6 +362,69 @@ app.get('/api/penjualan', async (req, res) => {
 });
 
 // --- FITUR REPORTING & BUSINESS INTELLIGENCE (DARI DB REPORT) ---
+app.post('/api/simulasi/generate-penjualan-pusat', async (req, res) => {
+    let count = parseInt(req.body.count, 10) || 10;
+    if (count > 2000) count = 2000;
+
+    const depos = ['DEPO-SURABAYA-01', 'DEPO-JAKARTA-01', 'DEPO-MALANG-01'];
+    const startTime = Date.now();
+
+    try {
+        const mainPool = getDbMainPool();
+        const reportPool = getDbReportPool();
+
+        const mainClient = await mainPool.connect();
+        const reportClient = await reportPool.connect();
+
+        try {
+            await mainClient.query('BEGIN');
+            await reportClient.query('BEGIN');
+
+            for (let i = 0; i < count; i++) {
+                const depoId = depos[Math.floor(Math.random() * depos.length)];
+                const noTrx = `HQ-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}-${i+1}`;
+                const trxUuid = crypto.randomUUID();
+                const idSales = Math.floor(1 + Math.random() * 20);
+                const idPelanggan = `CUST-${Math.floor(100 + Math.random() * 900)}`;
+                const grandTotal = Math.floor(50 + Math.random() * 450) * 10000;
+                const tanggal = new Date().toISOString();
+
+                await mainClient.query(
+                    `INSERT INTO sfa_penjualan (uuid, notransaksi, tanggal, idsales, idpelanggan, grand_total)
+                     VALUES ($1, $2, $3, $4, $5, $6)`,
+                    [trxUuid, noTrx, tanggal, idSales, idPelanggan, grandTotal]
+                );
+
+                await reportClient.query(
+                    `INSERT INTO sfa_penjualan (uuid, notransaksi, tanggal, idsales, idpelanggan, grand_total, id_depo)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [trxUuid, noTrx, tanggal, idSales, idPelanggan, grandTotal, depoId]
+                );
+            }
+
+            await mainClient.query('COMMIT');
+            await reportClient.query('COMMIT');
+        } catch (err) {
+            await mainClient.query('ROLLBACK');
+            await reportClient.query('ROLLBACK');
+            throw err;
+        } finally {
+            mainClient.release();
+            reportClient.release();
+        }
+
+        const duration = Date.now() - startTime;
+        res.json({
+            success: true,
+            count,
+            durationMs: duration,
+            message: `Berhasil generate ${count} transaksi simulasi di Pusat (DB Main & DB Report) dalam ${duration}ms!`
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/report/omset-depo', async (req, res) => {
     try {
         const pool = getDbReportPool();
