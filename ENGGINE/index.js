@@ -168,6 +168,14 @@ app.use((req, res, next) => {
     next();
 });
 
+// --- IN-MEMORY SYNC & DATA PROCESSING MONITORING STATUS ---
+let syncStatus = {
+    isSyncing: false,
+    lastSyncAt: null,
+    lastSyncCount: 0,
+    lastDepoId: '-'
+};
+
 // --- API STATUS SFA PUSAT ---
 app.get('/api/status', (req, res) => {
     const config = getPusatConfig();
@@ -177,6 +185,7 @@ app.get('/api/status', (req, res) => {
         status: 'online',
         totalDepos: config.depos.length,
         activeDepos,
+        syncStatus,
         timestamp: new Date().toISOString()
     });
 });
@@ -478,6 +487,12 @@ app.post('/api/pusat/sync-penjualan', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Data transaksi kosong.' });
     }
 
+    // Set Processing Indicator State
+    syncStatus.isSyncing = true;
+    syncStatus.lastDepoId = depo.depoId;
+    syncStatus.lastSyncCount = items.length;
+    syncStatus.lastSyncAt = new Date().toISOString();
+
     try {
         let syncedCount = 0;
 
@@ -532,15 +547,18 @@ app.post('/api/pusat/sync-penjualan', async (req, res) => {
                     console.error('❌ Mirror error ke Reporting DB:', e.message);
                 } finally {
                     reportClient.release();
+                    syncStatus.isSyncing = false;
                 }
             } catch (err) {
                 console.error('❌ DB Report connection error:', err.message);
+                syncStatus.isSyncing = false;
             }
         })();
 
         console.log(`⚡ [REALTIME SYNC HQ] Berhasil menerima ${syncedCount} transaksi dari ${depo.depoId}`);
         res.json({ success: true, count: syncedCount, message: `${syncedCount} Transaksi berhasil disinkronkan ke HQ Pusat & Reporting DB.` });
     } catch (err) {
+        syncStatus.isSyncing = false;
         console.error('❌ Error saving sync data at HQ:', err.message);
         res.status(500).json({ success: false, error: err.message });
     }

@@ -98,6 +98,10 @@
             </div>
         </div>
         <div style="display: flex; align-items: center; gap: 16px;">
+            <div id="syncIndicatorBadge" style="display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 8px 16px; border-radius: 12px; font-size: 13px; font-weight: 700; color: #34d399;">
+                <span class="badge-dot" style="background: #10b981;"></span>
+                <span id="syncIndicatorText">🟢 SINKRONISASI PUSAT IDLE / SIAP</span>
+            </div>
             <div class="token-badge">
                 <span class="badge-dot"></span>
                 <span>SFA PUSAT HQ ONLINE</span>
@@ -255,6 +259,28 @@
                 .then(data => {
                     document.getElementById('statTotalDepo').innerText = data.totalDepos;
                     document.getElementById('statActiveDepo').innerText = data.activeDepos;
+
+                    const syncBadge = document.getElementById('syncIndicatorBadge');
+                    const syncText = document.getElementById('syncIndicatorText');
+                    const syncState = data.syncStatus;
+
+                    if (syncState && syncState.isSyncing) {
+                        syncBadge.style.background = 'rgba(245, 158, 11, 0.2)';
+                        syncBadge.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+                        syncBadge.style.color = '#facc15';
+                        syncText.innerHTML = `⚡ SEDANG MENYINKRONKAN / MENGOLAH DATA DEPO (${syncState.lastDepoId} - ${syncState.lastSyncCount} Trx)...`;
+                    } else if (syncState && syncState.lastSyncAt) {
+                        syncBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+                        syncBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                        syncBadge.style.color = '#34d399';
+                        const timeStr = new Date(syncState.lastSyncAt).toLocaleTimeString('id-ID');
+                        syncText.innerText = `🟢 SINKRONISASI PUSAT SIAP (Terakhir Sync: ${timeStr} - ${syncState.lastDepoId})`;
+                    } else {
+                        syncBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+                        syncBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                        syncBadge.style.color = '#34d399';
+                        syncText.innerText = '🟢 SINKRONISASI PUSAT IDLE / SIAP';
+                    }
                 });
         }
 
