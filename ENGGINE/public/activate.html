@@ -146,7 +146,11 @@
             <div class="input-group">
                 <label for="tokenInput">Token Lisensi Depo</label>
                 <input type="text" id="tokenInput" placeholder="Contoh: SFA-TOKEN-DEPO01-2026" required autocomplete="off">
-                <p class="hint">Gunakan Dummy Token: <code>SFA-TOKEN-DEPO01-2026</code></p>
+                <p class="hint">Masukkan Token yang dibuat di <strong>SFA PUSAT</strong> (contoh: <code>SFA-TOKEN-DEPO01-2026</code>)</p>
+            </div>
+            <div class="input-group">
+                <label for="pusatUrlInput">URL Server SFA PUSAT</label>
+                <input type="text" id="pusatUrlInput" placeholder="http://localhost:3000" value="http://localhost:3000">
             </div>
             <button type="submit" id="btnSubmit">Hubungkan & Aktifkan Depo →</button>
         </form>
@@ -158,7 +162,10 @@
             .then(res => res.json())
             .then(data => {
                 document.getElementById('depoId').innerText = data.depoId || 'DEPO-01';
-                document.getElementById('publicIp').innerText = data.publicIp || '180.252.12.89';
+                document.getElementById('publicIp').innerText = data.publicIp || '127.0.0.1';
+                if (data.pusatUrl) {
+                    document.getElementById('pusatUrlInput').value = data.pusatUrl;
+                }
                 if (data.status === 'connected') {
                     window.location.href = '/dashboard.html';
                 }
@@ -167,24 +174,25 @@
         document.getElementById('activateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const token = document.getElementById('tokenInput').value.trim();
+            const pusatUrl = document.getElementById('pusatUrlInput').value.trim();
             const alertBox = document.getElementById('alertBox');
             const btn = document.getElementById('btnSubmit');
 
             btn.disabled = true;
-            btn.innerText = 'Memverifikasi Token...';
+            btn.innerText = 'Memverifikasi ke SFA PUSAT...';
             alertBox.style.display = 'none';
 
             try {
                 const res = await fetch('/api/activate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token })
+                    body: JSON.stringify({ token, pusatUrl })
                 });
 
                 const data = await res.json();
                 if (data.success) {
                     alertBox.className = 'alert alert-success';
-                    alertBox.innerText = '✅ Aktivasi Berhasil! Mengunci IP & Membuka Dashboard...';
+                    alertBox.innerText = '✅ ' + (data.message || 'Aktivasi Berhasil! Terhubung ke SFA PUSAT.');
                     alertBox.style.display = 'block';
                     setTimeout(() => {
                         window.location.href = '/dashboard.html';

@@ -1,35 +1,57 @@
 services:
-  db:
+  db_local:
     image: postgres:16-alpine
-    container_name: postgres_db
+    container_name: sfa_depo_db_local
     environment:
       - POSTGRES_DB=sfa_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_depo_local_data:/var/lib/postgresql/data
       - ./DATABASE:/docker-entrypoint-initdb.d
+    restart: always
+
+  db_sync:
+    image: postgres:16-alpine
+    container_name: sfa_depo_db_sync
+    environment:
+      - POSTGRES_DB=sfa_db_sync
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg_depo_sync_data:/var/lib/postgresql/data
+      - ./DATABASE_SYNC:/docker-entrypoint-initdb.d
     restart: always
 
   app:
     build: .
-    container_name: node_app
+    container_name: sfa_depo_app
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=sfa_db
+      - DB_LOCAL_HOST=db_local
+      - DB_LOCAL_PORT=5432
+      - DB_LOCAL_NAME=sfa_db
+      - DB_SYNC_HOST=db_sync
+      - DB_SYNC_PORT=5432
+      - DB_SYNC_NAME=sfa_db_sync
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - PORT=3000
+      - PUSAT_URL=http://host.docker.internal:3000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./CONFIG:/usr/src/app/CONFIG
     depends_on:
-      - db
+      - db_local
+      - db_sync
     restart: always
 
 volumes:
-  pg_data:
+  pg_depo_local_data:
+  pg_depo_sync_data:
