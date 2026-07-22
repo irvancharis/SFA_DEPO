@@ -304,7 +304,10 @@
                         <tr>
                             <td><strong>${d.depoId}</strong></td>
                             <td>${d.name}</td>
-                            <td><code style="background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; font-size:12px;">${d.token}</code></td>
+                            <td>
+                                <code style="background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; font-size:12px; font-family:monospace;">${d.token}</code>
+                                <button onclick="copyToClipboard('${d.token}', this)" style="background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; margin-left:6px; transition:0.2s;" class="btn-copy">📋 Copy</button>
+                            </td>
                             <td><code style="background:rgba(59,130,246,0.15); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700;">${dbConfStr}</code></td>
                             <td style="color:#60a5fa;">${d.publicIp || '-'}</td>
                             <td><span class="status-badge status-${d.status}">${d.status}</span></td>
@@ -494,7 +497,7 @@
                 const resultDiv = document.getElementById('genResult');
                 if (res.success) {
                     resultDiv.style.color = '#34d399';
-                    resultDiv.innerHTML = `✅ Token & Kredensial DB Berhasil Dibuat!<br>Token: <code>${res.data.token}</code><br><small style="color:#60a5fa;">User DB Target: ${res.data.dbConfig.user}</small>`;
+                    resultDiv.innerHTML = `✅ Token & Kredensial DB Berhasil Dibuat!<br>Token: <code>${res.data.token}</code> <button onclick="copyToClipboard('${res.data.token}', this)" style="background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); color:#60a5fa; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer; margin-left:6px; transition:0.2s;" class="btn-copy">📋 Copy</button><br><small style="color:#60a5fa;">User DB Target: ${res.data.dbConfig.user}</small>`;
                     document.getElementById('inputDepoId').value = '';
                     document.getElementById('inputDepoName').value = '';
                     loadDepos();
@@ -550,6 +553,24 @@
             loadDepos();
             loadPenjualan();
         }, 3000);
+
+        function copyToClipboard(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = '✅ Copied!';
+                btn.style.background = 'rgba(16,185,129,0.2)';
+                btn.style.borderColor = 'rgba(16,185,129,0.4)';
+                btn.style.color = '#34d399';
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.background = 'rgba(59,130,246,0.2)';
+                    btn.style.borderColor = 'rgba(59,130,246,0.4)';
+                    btn.style.color = '#60a5fa';
+                }, 1500);
+            }).catch(err => {
+                console.error('Gagal menyalin token:', err);
+            });
+        }
     </script>
 </body>
 </html>
